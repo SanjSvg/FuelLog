@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Fuel Log" />
+<title>Fuel Log</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: #0F2A3D; color: #F5F3EC; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .app-shell { min-height: 100vh; padding: 20px 14px 40px; }
+  .app-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .app-header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .subtitle { color: #6E848D; font-size: 13px; margin-left: 2px; }
+
+  .sync-bar {
+    max-width: 480px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: space-between;
+    background: #16323F; border: 1px solid #22424F; border-radius: 10px; padding: 8px 12px; font-size: 12px;
+  }
+  .sync-status { display: flex; align-items: center; gap: 6px; color: #8FA3AC; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #6E848D; }
+  .sync-dot.ok { background: #4FA8A0; }
+  .sync-dot.err { background: #C0563F; }
+  .sync-dot.busy { background: #C9A15A; }
+  .sync-gear { background: none; border: none; color: #8FA3AC; font-size: 15px; cursor: pointer; padding: 2px 6px; }
+
+  .settings-panel {
+    max-width: 480px; margin: 0 auto 14px; background: #16323F; border: 1px solid #22424F; border-radius: 12px; padding: 16px; display: none;
+  }
+  .settings-panel.open { display: block; }
+  .settings-panel label { display: flex; flex-direction: column; font-size: 12px; color: #8FA3AC; gap: 4px; margin-bottom: 10px; }
+  .settings-panel .field-hint { font-size: 11px; color: #6E848D; margin: -4px 0 10px; line-height: 1.4; }
+  .settings-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+  .gauge-block { max-width: 320px; margin: 0 auto; background: #16323F; border: 1px solid #22424F; border-radius: 16px; padding: 16px 14px 14px; display: flex; flex-direction: column; align-items: center; }
+  .gauge-label { font-size: 12px; color: #8FA3AC; margin-bottom: 4px; text-align: center; }
+  .rate-chip { font-size: 11px; color: #4FA8A0; background: rgba(79,168,160,0.12); padding: 3px 8px; border-radius: 20px; margin-top: 4px; }
+
+  .latest-note { text-align: center; font-size: 12px; color: #6E848D; max-width: 480px; margin: 10px auto 0; }
+
+  .type-toggle { max-width: 480px; margin: 16px auto 0; display: flex; gap: 6px; }
+  .toggle { flex: 1; background: #16323F; border: 1px solid #22424F; color: #8FA3AC; font-size: 13px; padding: 10px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500; }
+  .toggle.active { background: #4FA8A0; color: #0F2A3D; border-color: #4FA8A0; font-weight: 600; }
+
+  .log-form { max-width: 480px; margin: 10px auto 0; background: #16323F; border: 1px solid #22424F; border-radius: 16px; padding: 18px; }
+  .log-form label { display: flex; flex-direction: column; font-size: 12px; color: #8FA3AC; gap: 4px; margin-bottom: 12px; }
+  .field-hint { font-size: 11px; color: #6E848D; margin: -6px 0 12px; line-height: 1.4; }
+  .mode-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+  .mode-btn { flex: 1; background: #0F2A3D; border: 1px solid #2C4D5A; color: #8FA3AC; font-size: 11px; padding: 7px; border-radius: 8px; cursor: pointer; }
+  .mode-btn.active { background: rgba(79,168,160,0.15); color: #4FA8A0; border-color: #4FA8A0; font-weight: 600; }
+  .tank-inputs { display: flex; gap: 10px; }
+  .tank-inputs label { flex: 1; }
+
+  input { background: #0F2A3D; border: 1px solid #2C4D5A; color: #F5F3EC; padding: 10px 12px; border-radius: 8px; font-size: 15px; width: 100%; font-family: inherit; }
+  input:focus { outline: 2px solid #4FA8A0; outline-offset: 1px; border-color: #4FA8A0; }
+  .btn-primary { width: 100%; background: #4FA8A0; color: #0F2A3D; border: none; font-weight: 600; font-size: 14px; padding: 12px; border-radius: 10px; cursor: pointer; margin-top: 4px; }
+  .btn-secondary { width: 100%; background: transparent; color: #8FA3AC; border: 1px solid #2C4D5A; font-weight: 600; font-size: 13px; padding: 10px; border-radius: 10px; cursor: pointer; }
+
+  .history-section { max-width: 480px; margin: 14px auto 0; }
+  .history-toggle { width: 100%; background: transparent; color: #8FA3AC; border: 1px solid #22424F; font-size: 13px; padding: 10px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .history-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .history-row { display: flex; align-items: flex-start; gap: 10px; background: #16323F; border: 1px solid #22424F; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .history-main { display: flex; flex-direction: column; min-width: 110px; gap: 2px; }
+  .history-date { color: #F5F3EC; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .fillup-tag { font-size: 10px; color: #C9A15A; background: rgba(201,161,90,0.15); padding: 1px 6px; border-radius: 10px; font-weight: 600; }
+  .history-hours { color: #6E848D; font-size: 11px; }
+  .history-crew { color: #6E848D; font-size: 11px; display: flex; align-items: center; gap: 3px; }
+  .history-gallons { flex: 1; display: flex; flex-direction: column; gap: 3px; color: #C9DDE2; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .left-tag { color: #4FA8A0; font-weight: 600; }
+  .icon-btn { background: none; border: none; color: #6E848D; cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 16px; align-self: flex-start; }
+
+  .error-banner { max-width: 480px; margin: 16px auto 0; background: #3A2420; border: 1px solid #C0563F; color: #F0C4B4; padding: 10px 14px; border-radius: 8px; font-size: 13px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <span>⛽</span>
+    <h1>Fuel Log</h1>
+    <span class="subtitle">Pro-Line 2950 · twin DF250Z</span>
+  </header>
+
+  <div class="sync-bar">
+    <div class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncText">Not connected</span></div>
+    <button class="sync-gear" onclick="toggleSettings()">⚙️ Sync</button>
+  </div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <label>GitHub username
+      <input type="text" id="cfgOwner" placeholder="e.g. sanjboats" />
+    </label>
+    <label>Repository name
+      <input type="text" id="cfgRepo" placeholder="e.g. fuel-log-data" />
+    </label>
+    <label>Personal access token
+      <input type="password" id="cfgToken" placeholder="github_pat_..." />
+    </label>
+    <p class="field-hint">
+      Create a token at github.com → Settings → Developer settings → Personal access tokens →
+      Fine-grained tokens. Scope it to ONLY this one repository, with "Contents" permission set
+      to Read and write. Keep this repo private — your fuel log data lives here, separate from
+      the public repo hosting this page.
+    </p>
+    <div class="settings-actions">
+      <button class="btn-primary" onclick="saveSettings()">Save &amp; Connect</button>
+      <button class="btn-secondary" onclick="toggleSettings()">Close</button>
+    </div>
+  </div>
+
+  <div class="gauge-block">
+    <div class="gauge-label">Gallons left (300 gal capacity)</div>
+    <svg viewBox="0 0 180 130" width="220" height="auto" id="gaugeSvg"></svg>
+    <div class="rate-chip" id="rateChip" style="display:none;"></div>
+  </div>
+
+  <div class="latest-note" id="latestNote"></div>
+
+  <div class="type-toggle">
+    <button class="toggle active" id="tabReading" onclick="setEntryType('reading')">⚓ Trip reading</button>
+    <button class="toggle" id="tabFillup" onclick="setEntryType('fillup')">💧 Fill-up</button>
+  </div>
+
+  <form class="log-form" id="readingForm" onsubmit="return handleLogReading(event)">
+    <label>Date<input type="date" id="rDate" required /></label>
+    <label>Engine hours<input type="number" step="0.1" id="rHours" placeholder="e.g. 273" required /></label>
+    <div class="mode-toggle">
+      <button type="button" class="mode-btn active" id="rModeSingle" onclick="setReadingMode('single')">One combined meter</button>
+      <button type="button" class="mode-btn" id="rModeSplit" onclick="setReadingMode('split')">Separate port/stbd</button>
+    </div>
+    <div id="rSingleField">
+      <label>Gallons used (total, from meter)<input type="number" step="0.1" id="rTotalUsed" placeholder="e.g. 2040" /></label>
+    </div>
+    <div id="rSplitField" class="tank-inputs" style="display:none;">
+      <label>Port gallons used (total)<input type="number" step="0.1" id="rPortUsed" placeholder="e.g. 1020" /></label>
+      <label>Stbd gallons used (total)<input type="number" step="0.1" id="rStbdUsed" placeholder="e.g. 1020" /></label>
+    </div>
+    <label>Who was on the trip (optional)<input type="text" id="rCrew" placeholder="e.g. Cindy and Greg" /></label>
+    <button type="submit" class="btn-primary">Log reading</button>
+  </form>
+
+  <form class="log-form" id="fillupForm" style="display:none;" onsubmit="return handleLogFillup(event)">
+    <label>Date<input type="date" id="fDate" required /></label>
+    <label>Gallons added<input type="number" step="0.1" id="fAdded" placeholder="e.g. 78" required /></label>
+    <div class="mode-toggle">
+      <button type="button" class="mode-btn active" id="fModeSingle" onclick="setFillupMode('single')">One combined meter</button>
+      <button type="button" class="mode-btn" id="fModeSplit" onclick="setFillupMode('split')">Separate port/stbd</button>
+    </div>
+    <div id="fSingleField">
+      <label>Totalizer reading at fill-up (optional)<input type="number" step="0.1" id="fTotalUsed" placeholder="e.g. 2006" /></label>
+    </div>
+    <div id="fSplitField" class="tank-inputs" style="display:none;">
+      <label>Port totalizer reading (optional)<input type="number" step="0.1" id="fPortUsed" placeholder="e.g. 1003" /></label>
+      <label>Stbd totalizer reading (optional)<input type="number" step="0.1" id="fStbdUsed" placeholder="e.g. 1003" /></label>
+    </div>
+    <p class="field-hint">Fill this in if your flow meter shows a reading at this fill-up — it lets the next trip calculate gallons burned correctly.</p>
+    <button type="submit" class="btn-primary">Log fill-up</button>
+  </form>
+
+  <div class="history-section" id="historySection" style="display:none;">
+    <button class="history-toggle" onclick="toggleHistory()"><span id="historyChevron">▾</span> <span id="historyLabel">History (0)</span></button>
+    <div class="history-list" id="historyList" style="display:none;"></div>
+  </div>
+
+  <div class="error-banner" id="errorBanner" style="display:none;"></div>
+</div>
+
+<script>
+const TOTAL_CAPACITY = 300;
+const LOCAL_CACHE_KEY = 'fuel-entries-cache-v1';
+const CONFIG_KEY = 'fuel-github-config-v1';
+const DATA_PATH = 'data.json';
+
+let entries = [];
+let entryType = 'reading';
+let readingMode = 'single';
+let fillupMode = 'single';
+let showHistory = false;
+let githubConfig = null;
+let remoteSha = null;
+
+function b64Encode(str) {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
+}
+function b64Decode(str) {
+  return decodeURIComponent(atob(str.replace(/\n/g, '')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+
+function loadLocalCache() {
+  try {
+    const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+    entries = raw ? JSON.parse(raw) : [];
+  } catch (e) { entries = []; }
+}
+function saveLocalCache() {
+  try { localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(entries)); } catch (e) {}
+}
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    githubConfig = raw ? JSON.parse(raw) : null;
+  } catch (e) { githubConfig = null; }
+}
+function saveConfigToStorage() {
+  try { localStorage.setItem(CONFIG_KEY, JSON.stringify(githubConfig)); } catch (e) {}
+}
+
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open') && githubConfig) {
+    document.getElementById('cfgOwner').value = githubConfig.owner || '';
+    document.getElementById('cfgRepo').value = githubConfig.repo || '';
+    document.getElementById('cfgToken').value = githubConfig.token || '';
+  }
+}
+
+function saveSettings() {
+  const owner = document.getElementById('cfgOwner').value.trim();
+  const repo = document.getElementById('cfgRepo').value.trim();
+  const token = document.getElementById('cfgToken').value.trim();
+  if (!owner || !repo || !token) { setSyncStatus('err', 'Fill in all three fields'); return; }
+  githubConfig = { owner, repo, token };
+  saveConfigToStorage();
+  toggleSettings();
+  syncFromGithub(true);
+}
+
+function setSyncStatus(kind, text) {
+  const dot = document.getElementById('syncDot');
+  dot.className = 'sync-dot' + (kind ? ' ' + kind : '');
+  document.getElementById('syncText').textContent = text;
+}
+
+async function githubRequest(method, body) {
+  const url = `https://api.github.com/repos/${githubConfig.owner}/${githubConfig.repo}/contents/${DATA_PATH}`;
+  const headers = { 'Authorization': 'token ' + githubConfig.token, 'Accept': 'application/vnd.github+json' };
+  const opts = { method, headers };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  return fetch(url, opts);
+}
+
+async function syncFromGithub(mergeLocal) {
+  if (!githubConfig) { setSyncStatus('', 'Not connected'); return; }
+  setSyncStatus('busy', 'Syncing…');
+  try {
+    const res = await githubRequest('GET');
+    if (res.status === 200) {
+      const json = await res.json();
+      remoteSha = json.sha;
+      const remoteEntries = JSON.parse(b64Decode(json.content));
+      if (mergeLocal && entries.length) {
+        entries = mergeEntries(remoteEntries, entries);
+        await pushToGithub();
+      } else {
+        entries = remoteEntries;
+        saveLocalCache();
+      }
+      setSyncStatus('ok', 'Synced');
+    } else if (res.status === 404) {
+      remoteSha = null;
+      await pushToGithub();
+    } else if (res.status === 401 || res.status === 403) {
+      setSyncStatus('err', 'Token invalid or lacks permission');
+    } else {
+      setSyncStatus('err', 'Sync error (' + res.status + ')');
+    }
+  } catch (e) {
+    setSyncStatus('err', 'Offline — using local copy');
+  }
+  render();
+}
+
+function mergeEntries(a, b) {
+  const map = new Map();
+  [...a, ...b].forEach((e) => map.set(e.id, e));
+  return Array.from(map.values());
+}
+
+async function pushToGithub() {
+  if (!githubConfig) return;
+  setSyncStatus('busy', 'Saving…');
+  try {
+    const body = { message: 'Update fuel log ' + new Date().toISOString(), content: b64Encode(JSON.stringify(entries)) };
+    if (remoteSha) body.sha = remoteSha;
+    const res = await githubRequest('PUT', body);
+    if (res.status === 200 || res.status === 201) {
+      const json = await res.json();
+      remoteSha = json.content.sha;
+      setSyncStatus('ok', 'Synced');
+      showError(null);
+    } else if (res.status === 409) {
+      const getRes = await githubRequest('GET');
+      if (getRes.status === 200) {
+        const json = await getRes.json();
+        remoteSha = json.sha;
+        const remoteEntries = JSON.parse(b64Decode(json.content));
+        entries = mergeEntries(remoteEntries, entries);
+        saveLocalCache();
+        const retryBody = { message: 'Merge fuel log', content: b64Encode(JSON.stringify(entries)), sha: remoteSha };
+        const retryRes = await githubRequest('PUT', retryBody);
+        if (retryRes.status === 200 || retryRes.status === 201) {
+          const retryJson = await retryRes.json();
+          remoteSha = retryJson.content.sha;
+          setSyncStatus('ok', 'Synced (merged)');
+        } else setSyncStatus('err', 'Could not save after merge');
+      }
+    } else if (res.status === 401 || res.status === 403) {
+      setSyncStatus('err', 'Token invalid or lacks permission');
+    } else {
+      setSyncStatus('err', 'Save failed (' + res.status + ')');
+    }
+  } catch (e) {
+    setSyncStatus('err', 'Offline — saved locally, will sync later');
+  }
+}
+
+function showError(msg) {
+  const banner = document.getElementById('errorBanner');
+  if (msg) { banner.style.display = 'flex'; banner.textContent = msg; }
+  else banner.style.display = 'none';
+}
+
+function computeLedger(sortedEntries) {
+  let gallonsLeft = TOTAL_CAPACITY;
+  let lastSingle = null;
+  let lastSplit = null;
+  let lastHours = null;
+  return sortedEntries.map((e) => {
+    if (e.type === 'fillup') {
+      gallonsLeft = Math.min(TOTAL_CAPACITY, gallonsLeft + e.added);
+      if (e.mode === 'single' && e.totalUsed != null) lastSingle = e.totalUsed;
+      if (e.mode === 'split' && e.portUsed != null && e.stbdUsed != null) lastSplit = { port: e.portUsed, stbd: e.stbdUsed };
+      return Object.assign({}, e, { gallonsLeft, rate: null });
+    }
+    let delta = 0;
+    if (e.mode === 'single') {
+      delta = lastSingle != null ? Math.max(0, e.totalUsed - lastSingle) : 0;
+      lastSingle = e.totalUsed;
+    } else {
+      const portDelta = lastSplit ? Math.max(0, e.portUsed - lastSplit.port) : 0;
+      const stbdDelta = lastSplit ? Math.max(0, e.stbdUsed - lastSplit.stbd) : 0;
+      delta = portDelta + stbdDelta;
+      lastSplit = { port: e.portUsed, stbd: e.stbdUsed };
+    }
+    gallonsLeft = Math.max(0, gallonsLeft - delta);
+    let rate = null;
+    if (lastHours != null && e.hours != null && e.hours > lastHours) rate = delta / (e.hours - lastHours);
+    lastHours = e.hours;
+    return Object.assign({}, e, { gallonsLeft, rate, delta });
+  });
+}
+
+function drawGauge(gallons, capacity) {
+  const pct = Math.max(0, Math.min(1, gallons / capacity));
+  const color = pct > 0.4 ? '#4FA8A0' : pct > 0.18 ? '#C9A15A' : '#C0563F';
+  const radius = 70, cx = 90, cy = 90, startAngle = -210, endAngle = 30;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const arcPoint = (deg) => ({ x: cx + radius * Math.cos(toRad(deg)), y: cy + radius * Math.sin(toRad(deg)) });
+  const start = arcPoint(startAngle), end = arcPoint(endAngle), sweepEnd = arcPoint(startAngle + pct * 240);
+  const bigArc = (a1, a2) => (a2 - a1 <= 180 ? 0 : 1);
+  let svg = `<path d="M ${start.x} ${start.y} A ${radius} ${radius} 0 ${bigArc(startAngle, endAngle)} 1 ${end.x} ${end.y}" fill="none" stroke="#22323d" stroke-width="14" stroke-linecap="round" />`;
+  if (pct > 0) svg += `<path d="M ${start.x} ${start.y} A ${radius} ${radius} 0 ${bigArc(startAngle, startAngle + pct * 240)} 1 ${sweepEnd.x} ${sweepEnd.y}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round" />`;
+  svg += `<text x="90" y="88" text-anchor="middle" font-size="30" font-weight="600" fill="#F5F3EC">${Math.round(gallons)}</text>`;
+  svg += `<text x="90" y="108" text-anchor="middle" font-size="11" fill="#8FA3AC" letter-spacing="0.5">of ${capacity} gal</text>`;
+  document.getElementById('gaugeSvg').innerHTML = svg;
+}
+
+function render() {
+  const sorted = entries.slice().sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const ledger = computeLedger(sorted);
+  const latest = ledger.length ? ledger[ledger.length - 1] : null;
+  drawGauge(latest ? latest.gallonsLeft : TOTAL_CAPACITY, TOTAL_CAPACITY);
+
+  const readings = ledger.filter((e) => e.type === 'reading' && e.rate != null);
+  const avgRate = readings.length ? readings.reduce((s, e) => s + e.rate, 0) / readings.length : null;
+  const rateChip = document.getElementById('rateChip');
+  if (avgRate != null) { rateChip.style.display = 'block'; rateChip.textContent = avgRate.toFixed(2) + ' gal/hr avg'; }
+  else rateChip.style.display = 'none';
+
+  const latestNote = document.getElementById('latestNote');
+  if (latest) {
+    let note = 'Last logged ' + latest.date;
+    note += latest.type === 'reading' ? ' · ' + latest.hours + ' hrs' : ' · fill-up';
+    if (latest.type === 'reading' && latest.crew) note += ' · with ' + latest.crew;
+    latestNote.textContent = note;
+  } else latestNote.textContent = '';
+
+  const historySection = document.getElementById('historySection');
+  const historyLabel = document.getElementById('historyLabel');
+  const historyList = document.getElementById('historyList');
+  if (ledger.length > 0) {
+    historySection.style.display = 'block';
+    historyLabel.textContent = 'History (' + ledger.length + ')';
+    if (showHistory) {
+      historyList.style.display = 'flex';
+      historyList.innerHTML = ledger.slice().reverse().map((e) => {
+        let gallonsHtml;
+        if (e.type === 'reading') {
+          const used = e.mode === 'split' ? ('Used: P ' + e.portUsed + ' · S ' + e.stbdUsed) : ('Used total: ' + e.totalUsed);
+          const rate = e.rate != null ? (' · ' + e.rate.toFixed(2) + ' gal/hr') : '';
+          gallonsHtml = '<span>' + used + rate + '</span><span class="left-tag">' + Math.round(e.gallonsLeft) + ' gal left</span>';
+        } else {
+          let addedStr = 'Added: +' + e.added;
+          if (e.mode === 'split' && e.portUsed != null) addedStr += ' · meter P ' + e.portUsed + ' / S ' + e.stbdUsed;
+          else if (e.totalUsed != null) addedStr += ' · meter at ' + e.totalUsed;
+          gallonsHtml = '<span>' + addedStr + '</span><span class="left-tag">' + Math.round(e.gallonsLeft) + ' gal left</span>';
+        }
+        const fillupTag = e.type === 'fillup' ? '<span class="fillup-tag">fill-up</span>' : '';
+        const hoursHtml = e.type === 'reading' ? '<span class="history-hours">' + e.hours + ' hrs</span>' : '';
+        const crewHtml = e.crew ? '<span class="history-crew">👥 ' + e.crew + '</span>' : '';
+        return '<div class="history-row"><div class="history-main"><span class="history-date">' + e.date + ' ' + fillupTag + '</span>' + hoursHtml + crewHtml + '</div><div class="history-gallons">' + gallonsHtml + '</div><button class="icon-btn" onclick="deleteEntry(\\'' + e.id + '\\')">🗑</button></div>';
+      }).join('');
+    } else historyList.style.display = 'none';
+  } else historySection.style.display = 'none';
+}
+
+function toggleHistory() {
+  showHistory = !showHistory;
+  document.getElementById('historyChevron').textContent = showHistory ? '▴' : '▾';
+  render();
+}
+
+async function deleteEntry(id) {
+  entries = entries.filter((e) => e.id !== id);
+  saveLocalCache();
+  render();
+  await pushToGithub();
+}
+
+function setEntryType(type) {
+  entryType = type;
+  document.getElementById('tabReading').classList.toggle('active', type === 'reading');
+  document.getElementById('tabFillup').classList.toggle('active', type === 'fillup');
+  document.getElementById('readingForm').style.display = type === 'reading' ? 'block' : 'none';
+  document.getElementById('fillupForm').style.display = type === 'fillup' ? 'block' : 'none';
+}
+function setReadingMode(mode) {
+  readingMode = mode;
+  document.getElementById('rModeSingle').classList.toggle('active', mode === 'single');
+  document.getElementById('rModeSplit').classList.toggle('active', mode === 'split');
+  document.getElementById('rSingleField').style.display = mode === 'single' ? 'block' : 'none';
+  document.getElementById('rSplitField').style.display = mode === 'split' ? 'flex' : 'none';
+}
+function setFillupMode(mode) {
+  fillupMode = mode;
+  document.getElementById('fModeSingle').classList.toggle('active', mode === 'single');
+  document.getElementById('fModeSplit').classList.toggle('active', mode === 'split');
+  document.getElementById('fSingleField').style.display = mode === 'single' ? 'block' : 'none';
+  document.getElementById('fSplitField').style.display = mode === 'split' ? 'flex' : 'none';
+}
+
+async function handleLogReading(evt) {
+  evt.preventDefault();
+  const date = document.getElementById('rDate').value;
+  const hours = document.getElementById('rHours').value;
+  if (!date || hours === '') return false;
+  let totalUsed, portUsed, stbdUsed;
+  if (readingMode === 'single') {
+    const tu = document.getElementById('rTotalUsed').value;
+    if (tu === '') return false;
+    totalUsed = parseFloat(tu); portUsed = null; stbdUsed = null;
+  } else {
+    const pu = document.getElementById('rPortUsed').value;
+    const su = document.getElementById('rStbdUsed').value;
+    if (pu === '' || su === '') return false;
+    portUsed = parseFloat(pu); stbdUsed = parseFloat(su); totalUsed = portUsed + stbdUsed;
+  }
+  const crew = document.getElementById('rCrew').value.trim();
+  entries.push({ id: Date.now().toString(), type: 'reading', date, hours: parseFloat(hours), mode: readingMode, totalUsed, portUsed, stbdUsed, crew: crew || null });
+  saveLocalCache();
+  document.getElementById('readingForm').reset();
+  setReadingMode('single');
+  setDefaultDates();
+  render();
+  await pushToGithub();
+  return false;
+}
+
+async function handleLogFillup(evt) {
+  evt.preventDefault();
+  const date = document.getElementById('fDate').value;
+  const added = document.getElementById('fAdded').value;
+  if (!date || added === '') return false;
+  let totalUsed = null, portUsed = null, stbdUsed = null;
+  if (fillupMode === 'single') {
+    const tu = document.getElementById('fTotalUsed').value;
+    totalUsed = tu === '' ? null : parseFloat(tu);
+  } else {
+    const pu = document.getElementById('fPortUsed').value;
+    const su = document.getElementById('fStbdUsed').value;
+    portUsed = pu === '' ? null : parseFloat(pu);
+    stbdUsed = su === '' ? null : parseFloat(su);
+    if (portUsed != null && stbdUsed != null) totalUsed = portUsed + stbdUsed;
+  }
+  entries.push({ id: Date.now().toString(), type: 'fillup', date, added: parseFloat(added), mode: fillupMode, totalUsed, portUsed, stbdUsed });
+  saveLocalCache();
+  document.getElementById('fillupForm').reset();
+  setFillupMode('single');
+  setDefaultDates();
+  render();
+  await pushToGithub();
+  return false;
+}
+
+function setDefaultDates() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('rDate').value = today;
+  document.getElementById('fDate').value = today;
+}
+
+loadLocalCache();
+loadConfig();
+setDefaultDates();
+render();
+if (githubConfig) syncFromGithub(true);
+else setSyncStatus('', 'Not connected — tap ⚙️ Sync');
+</script>
+</body>
+</html>
